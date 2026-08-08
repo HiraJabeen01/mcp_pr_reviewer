@@ -1,6 +1,11 @@
+from pathlib import Path
+
 from loguru import logger
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -10,8 +15,9 @@ class Settings(BaseSettings):
 
     # --- Environment loading ---
     model_config: SettingsConfigDict = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8"
+        env_file=ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     # --- Asana API Token ---
