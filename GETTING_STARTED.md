@@ -8,7 +8,7 @@ This guide provides a comprehensive walkthrough for setting up, running, and tes
 
 Here is how the end-to-end automated review workflow functions:
 
-![System Architecture & Workflow](C:\Users\HP\Downloads\FDE\Labs\mcp_pr_reviewer\static\architecture.png)
+![System Architecture & Workflow](C:\Users\HP\Downloads\FDE\Labs\mcp_pr_reviewer\static\mcp_architecture.png)
 
 ---
 
