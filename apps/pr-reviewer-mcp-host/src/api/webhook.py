@@ -50,6 +50,11 @@ async def handle_github_webhook(request: Request):
                 logger.info(f"Posting review to Slack channel {settings.SLACK_CHANNEL_ID}...")
                 await client.call_tool("slack_post_message", {"channel_name": settings.SLACK_CHANNEL_ID, "message": review})
                 logger.info("Review posted to Slack.")
+                
+                logger.info("Creating PR Review task on Asana...")
+                task_title = f"PR Review #{pr.get('number', '')}: {pr.get('title', 'Unknown Title')}"
+                await client.call_tool("asana_create_task", {"task_name": task_title, "description": review})
+                logger.info("PR Review task created on Asana.")
         else:
             logger.info(f"Webhook action '{payload.get('action')}' is not handled.")
         return {"status": "ok"}

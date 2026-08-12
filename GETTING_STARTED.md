@@ -8,23 +8,7 @@ This guide provides a comprehensive walkthrough for setting up, running, and tes
 
 Here is how the end-to-end automated review workflow functions:
 
-```mermaid
-graph TD
-    A[GitHub: PR Created/Opened] -->|Webhook HTTP POST| B(Ngrok Proxy)
-    B -->|Exposed URL: Port 5001| C[FastAPI Webhook Host]
-    C -->|1. Request Prompt Templates| D[MCP Tool Registry]
-    D -->|2. Return Prompt Templates| C
-    C -->|3. Call LLM with Context| E[Google Gemini Client]
-    E -->|4. Request Repository Details| C
-    C -->|5. Query GitHub tool| D
-    D -->|6. Fetch Pull Request Diff/Files| F(GitHub API)
-    F -->|7. Return PR Code & Comments| D
-    D -->|8. Return PR data| C
-    C -->|9. Generate Review Summary| E
-    E -->|10. Send Review back| C
-    C -->|11. Post Slack Message| D
-    D -->|12. Deliver Review Message| G(Slack Workspace)
-```
+![System Architecture & Workflow](C:\Users\HP\Downloads\FDE\Labs\mcp_pr_reviewer\static\architecture.png)
 
 ---
 
@@ -175,6 +159,10 @@ INFO:     Posting review to Slack channel C0BPKMB2E8G...
 ✅ Executing MCP tool call: slack_post_message...
 ✅ Tool call 'slack_post_message' completed successfully
 INFO:     Review posted to Slack.
+INFO:     Creating PR Review task on Asana...
+✅ Executing MCP tool call: asana_create_task...
+✅ Tool call 'asana_create_task' completed successfully
+INFO:     PR Review task created on Asana.
 ```
 
 ### 3. Check Slack Channel
@@ -184,6 +172,11 @@ Open your Slack workspace, go to the channel you configured (e.g., `#general` or
 > *   **Summary of Changes:** Added test code to README.
 > *   **Bugs/Issues:** None found.
 > *   **Suggestions:** Code looks clean and ready to merge.
+
+### 4. Check Asana Project
+Go to your Asana project workspace. You will find a new task created:
+*   **Task Title:** `PR Review #1: trigger review webhook`
+*   **Task Description:** Contains the full AI-generated pull request review summary.
 
 ---
 
