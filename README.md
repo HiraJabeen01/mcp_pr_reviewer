@@ -7,9 +7,7 @@
 </br>
 
 <p align="center">
-  <a href="">
-    <img src="static/mcp_pr_review.png" alt="Enterprise MCP Architecture" width="600">
-  </a>
+    <img src="static/mcp_pr_review.png" alt="Enterprise MCP Architecture" width="800">
 </p>
 
 ## 📖 About This Series
