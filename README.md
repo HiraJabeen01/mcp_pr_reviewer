@@ -7,7 +7,7 @@
 </br>
 
 <p align="center">
-  <a href="https://www.decodingai.com/t/designing-enterprise-mcp-systems">
+  <a href="">
     <img src="static/mcp_pr_review.png" alt="Enterprise MCP Architecture" width="600">
   </a>
 </p>
