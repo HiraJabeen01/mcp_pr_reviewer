@@ -1,19 +1,23 @@
 [project]
 name = "pr-assistant"
-version = "0.1.0"
+version = "0.2.0"
+requires-python = ">=3.11"
 dependencies = [
   "fastapi",
   "uvicorn[standard]",
-  "httpx",
-  "python-dotenv",
-  "pydantic",
   "openai",
-  "mcp-python",
+  "pydantic-settings",
   "loguru",
-  "requests",
-  "aiohttp",
-  "google-genai",
-  "mypy",
-  "opik"
 ]
 
+[dependency-groups]
+dev = [
+  "httpx",
+  "mypy",
+  "pytest",
+  "pytest-asyncio",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["src"]

@@ -1,195 +1,112 @@
-# Getting Started: Enterprise AI PR Reviewer Guide
+# Getting Started: Automated OpenAI PR Reviewer
 
-This guide provides a comprehensive walkthrough for setting up, running, and testing the **Enterprise AI PR Reviewer** powered by **Model Context Protocol (MCP)**, **Google Gemini**, **Slack**, and **GitHub**.
+The project has two running services:
 
----
+1. The MCP registry exposes GitHub read tools, Asana lookup/create tools, and
+   Slack message tools.
+2. The webhook host receives a signed GitHub PR-open event and starts an OpenAI
+   Responses API run against that remote MCP registry.
 
-## 🏗 System Architecture & Workflow
+When the run succeeds, the complete review appears in Slack and a `PR Review`
+task containing the same review is created in Asana.
 
-Here is how the end-to-end automated review workflow functions:
+## 1. Configure the MCP registry
 
-![System Architecture & Workflow](C:\Users\HP\Downloads\FDE\Labs\mcp_pr_reviewer\static\mcp_architecture.png)
+Create `apps/pr-reviewer-mcp-servers/.env`:
 
----
+```dotenv
+ASANA_TOKEN="<your_asana_token>"
+ASANA_PROJECT_GID="<your_asana_project_gid>"
 
-## 📋 Prerequisites
+SLACK_CLIENT_ID="<your_slack_client_id>"
+SLACK_CLIENT_SECRET="<your_slack_client_secret>"
+SLACK_BOT_TOKEN="xoxb-..."
 
-Make sure you have the following installed on your system:
-- **Python 3.10+** (Python 3.11 is recommended)
-- **uv** (Optional, but highly recommended for fast package management)
-- **Ngrok** (For forwarding public GitHub webhooks to your local machine)
-
----
-
-## ⚙️ Step 1: Environment Configuration
-
-You must configure two separate `.env` files—one for the **MCP Servers** and one for the **Webhook Host**.
-
-### 1. Servers Environment Config
-Create or edit [apps/pr-reviewer-mcp-servers/.env](file:///c:/Users/HP/Downloads/FDE/Labs/mcp_pr_reviewer/apps/pr-reviewer-mcp-servers/.env):
-```env
-# Asana Settings
-ASANA_TOKEN="your_personal_asana_token"
-ASANA_PROJECT_GID="your_asana_project_workspace_id"
-
-# Slack Settings
-SLACK_CLIENT_ID="your_slack_app_client_id"
-SLACK_CLIENT_SECRET="your_slack_app_client_secret"
-SLACK_BOT_TOKEN="xoxb-your-slack-bot-token"
-
-# GitHub Settings
-GITHUB_CLIENT_ID="your_github_oauth_client_id"
-GITHUB_CLIENT_SECRET="your_github_oauth_client_secret"
-GITHUB_ACCESS_TOKEN="ghp_your_github_personal_access_token"
-
-# Opik Integration (Optional)
-OPIK_API_KEY="<your_opik_api_key>"
-OPIK_PROJECT="pr_reviewer_servers"
+GITHUB_CLIENT_ID="<your_github_client_id>"
+GITHUB_CLIENT_SECRET="<your_github_client_secret>"
+GITHUB_ACCESS_TOKEN="<your_github_access_token>"
 ```
 
-### 2. Host Environment Config
-Create or edit [apps/pr-reviewer-mcp-host/.env](file:///c:/Users/HP/Downloads/FDE/Labs/mcp_pr_reviewer/apps/pr-reviewer-mcp-host/.env):
-```env
-# Gemini API Key
-GEMINI_API_KEY="AIzaSyYourGeminiApiKey"
+Start the registry:
 
-# Slack Notification Channel
-SLACK_CHANNEL_ID="C0BPKMB2E8G"
-
-# SSE Registry Server Endpoint
-TOOL_REGISTRY_URL="http://localhost:8000/mcp"
-
-# Opik Integration (Optional)
-OPIK_API_KEY="<your_opik_api_key>"
-OPIK_PROJECT="pr_reviewer_host"
-```
-
----
-
-## 🚀 Step 2: Running the Servers
-
-Open two separate terminal windows to run the servers:
-
-### Terminal 1: Tool Registry Server
-The Tool Registry acts as a gateway unifying GitHub, Slack, and Asana tools into a single MCP endpoint.
 ```powershell
 cd apps/pr-reviewer-mcp-servers
-# Setup virtual environment and install packages
-uv venv
-.venv\Scripts\activate
-uv pip install -e .
-
-# Start the Server
-python -u src/main.py sse
-```
-**Expected Output:**
-```text
-✅ MCP Servers Registry initialized successfully
-✅ Starting Tool Registry server on http://localhost:8000/mcp ...
+uv sync
+uv run python -u src/main.py sse
 ```
 
-### Terminal 2: Webhook Host
-The Webhook Host is a FastAPI application that listens for GitHub webhook events.
+OpenAI must be able to reach the registry over public HTTPS. Expose port 8000
+through your hosted environment, a secure MCP tunnel, or an HTTPS development
+tunnel. Keep the resulting `/mcp` URL for `TOOL_REGISTRY_URL`.
+
+## 2. Configure the OpenAI webhook host
+
+Create `apps/pr-reviewer-mcp-host/.env` from `.env.example`:
+
+```dotenv
+OPENAI_API_KEY="<your_openai_platform_api_key>"
+OPENAI_MODEL="gpt-5.6"
+
+TOOL_REGISTRY_URL="https://your-public-mcp-host.example.com/mcp"
+MCP_AUTHORIZATION=""
+SLACK_CHANNEL_ID="C01234567"
+
+GITHUB_WEBHOOK_SECRET="<use_a_long_random_secret>"
+WEBHOOK_DELIVERY_DB="webhook_deliveries.sqlite3"
+WEBHOOK_MAX_ATTEMPTS="3"
+WEBHOOK_RETRY_BASE_SECONDS="2"
+WEBHOOK_PROCESSING_STALE_SECONDS="900"
+```
+
+The OpenAI Platform API key is separate from your ChatGPT subscription. Your
+existing ChatGPT MCP registration can continue to use the same MCP server URL,
+but automatic webhook runs use the Responses API credentials above.
+
+Start the host:
+
 ```powershell
 cd apps/pr-reviewer-mcp-host
-# Setup virtual environment and install packages
-uv venv
-.venv\Scripts\activate
-uv pip install -e .
-
-# Start the Webhook Host
-python -u src/api/webhook.py
+uv sync --group dev
+uv run uvicorn api.webhook:app --app-dir src --host 0.0.0.0 --port 5001
 ```
-**Expected Output:**
+
+## 3. Register the GitHub webhook
+
+Expose port 5001 through public HTTPS, then create a repository webhook:
+
+- Payload URL: `https://<your-host>/webhook`
+- Content type: `application/json`
+- Secret: exactly the value of `GITHUB_WEBHOOK_SECRET`
+- Event selection: Pull requests
+
+Opening a PR now returns an accepted delivery immediately. Use the delivery GUID
+shown in GitHub's webhook delivery headers to inspect processing:
+
 ```text
-✅ MCP Connection Manager initialized successfully
-INFO:     Started server process [8600]
-INFO:     Uvicorn running on http://0.0.0.0:5001 (Press CTRL+C to quit)
+GET https://<your-host>/deliveries/<X-GitHub-Delivery>
 ```
 
----
+A successful response has `status: completed` and an OpenAI `response_id`.
 
-## 🌐 Step 3: Exposing Webhooks to GitHub
+## 4. Verify before using a real PR
 
-GitHub needs a public HTTPS URL to send webhook events. We will use **Ngrok** to create a tunnel to our local FastAPI server running on port `5001`.
+Run the host's isolated tests:
 
-1. Open a new terminal window and run:
-   ```powershell
-   ngrok http 5001
-   ```
-2. Copy the forwarding HTTPS URL generated by Ngrok (e.g. `https://1234-abcd.ngrok-free.app`).
-
-### Configure GitHub Webhook:
-1. Go to your GitHub Repository Settings -> **Webhooks** -> **Add webhook**.
-2. **Payload URL**: Paste the Ngrok URL and append `/webhook` (e.g. `https://1234-abcd.ngrok-free.app/webhook`).
-3. **Content type**: Select `application/json`.
-4. **Which events**: Select **Let me select individual events** and check **Pull requests**. Uncheck everything else.
-5. Click **Add webhook**.
-
----
-
-## 🧪 Step 4: Testing the Workflow
-
-### 1. Trigger the Event
-Create a new pull request on your GitHub repository (or close and re-open an existing one to trigger the webhook):
-
-```bash
-git checkout -b feature/test-pr
-echo "Adding test code" >> README.md
-git commit -am "test: trigger review webhook"
-git push origin feature/test-pr
-# Create PR on GitHub
+```powershell
+cd apps/pr-reviewer-mcp-host
+uv run --group dev pytest -q
 ```
 
-### 2. Verify Webhook Host Console
-You will see the incoming payload logged in the Webhook Host console:
-```text
-INFO:     Received webhook POST request.
-INFO:     Webhook action: opened
-INFO:     Processing PR opened event: id=123456 url=https://github.com/your-username/repo/pull/1
-INFO:     Requesting system prompt from MCPHost...
-INFO:     System prompt received: System review instructions...
-INFO:     Processing query with Gemini...
-✅ Executing MCP tool call: github_get_pull_request_files...
-✅ Tool call 'github_get_pull_request_files' completed successfully
-✅ Executing MCP tool call: github_get_pull_request_diff...
-✅ Tool call 'github_get_pull_request_diff' completed successfully
-INFO:     Review generated: [markdown feedback analysis]
-INFO:     Posting review to Slack channel C0BPKMB2E8G...
-✅ Executing MCP tool call: slack_post_message...
-✅ Tool call 'slack_post_message' completed successfully
-INFO:     Review posted to Slack.
-INFO:     Creating PR Review task on Asana...
-✅ Executing MCP tool call: asana_create_task...
-✅ Tool call 'asana_create_task' completed successfully
-INFO:     PR Review task created on Asana.
-```
+Then verify:
 
-### 3. Check Slack Channel
-Open your Slack workspace, go to the channel you configured (e.g., `#general` or your custom ID), and verify that a summary review message has been posted:
-> **🔍 AI PR Review Summary (#1)**
-> *   **Repository:** `your-username/repo`
-> *   **Summary of Changes:** Added test code to README.
-> *   **Bugs/Issues:** None found.
-> *   **Suggestions:** Code looks clean and ready to merge.
+- `GET /healthz` returns `{"status":"ok"}`.
+- The MCP URL is public and reachable, not `localhost`.
+- The Slack bot can post to `SLACK_CHANNEL_ID`.
+- The Asana token can read and create tasks in `ASANA_PROJECT_GID`.
+- GitHub webhook deliveries show HTTP 202 for newly opened pull requests.
 
-### 4. Check Asana Project
-Go to your Asana project workspace. You will find a new task created:
-*   **Task Title:** `PR Review #1: trigger review webhook`
-*   **Task Description:** Contains the full AI-generated pull request review summary.
+## Manual ChatGPT usage
 
----
-
-## 💻 Optional: Direct Codex Integration (No Host Required)
-
-If you use **Codex** (an MCP desktop client assistant), you do not need to run `webhook.py` or specify API keys locally. Codex will talk directly to the **Tool Registry** via `stdio` transport.
-
-1. Locate your Codex config file (usually at `%USERPROFILE%\.codex\config.toml` on Windows).
-2. Register the Tool Registry as a local stdio server under the `[mcp_servers]` section:
-   ```toml
-   [mcp_servers.mcp_pr_reviewer]
-   command = 'C:\Users\HP\Downloads\FDE\Labs\mcp_pr_reviewer\apps\pr-reviewer-mcp-servers\.venv\Scripts\python.exe'
-   args = ["-u", 'C:\Users\HP\Downloads\FDE\Labs\mcp_pr_reviewer\apps\pr-reviewer-mcp-servers\src\main.py']
-   ```
-3. Restart Codex.
-4. Type `/` in Codex chat. You will now see `mcp_pr_reviewer` and its unified tools list (`asana_find_task`, `slack_post_message`, etc.) ready for query contexts!
+Registering the MCP server with ChatGPT remains useful for interactive reviews.
+In a chat, provide a PR URL and ask ChatGPT to use the GitHub, Asana, and Slack
+tools. That manual path is independent of the automated webhook host.

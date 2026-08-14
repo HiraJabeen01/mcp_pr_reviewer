@@ -57,7 +57,7 @@ You will learn how to:
 | **Hardware**| Modern laptop/PC (no GPU required – all servers run locally or in lightweight containers)                                        |
 | **Level**   | Begginer/Intermediate (anyone willing to learn can follow along)                                                             |
 
-By using the **Gemini free tier**, this course can be completed at **zero cost**.
+The automated host uses the **OpenAI Responses API**; API usage is billed separately from ChatGPT subscriptions.
 
 ## 📚 Series Outline
 
